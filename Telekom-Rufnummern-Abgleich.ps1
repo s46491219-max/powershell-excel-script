@@ -50,7 +50,7 @@ param(
     [string]$SuchfeldSelektor = '',
 
     # Optional: Adresse, die beim Start in Chrome geoeffnet wird
-    [string]$PortalUrl = 'about:blank',
+    [string]$PortalUrl = 'https://geschaeftskunden.telekom.de/mbsp/mobilfunk/meine-vertraege',
 
     [int]$Port = 9222,
     [int]$MaxWarteSekunden = 15
@@ -270,7 +270,7 @@ $JsAuslesen = $JsGemeinsam + @'
         __cells(rows[i]).forEach(function(c,j){
           var h=__txt(c).toLowerCase();
           if(kIdx<0&&h.indexOf('kostenstelle')>=0){kIdx=j;hdr=i;}
-          if(pIdx<0&&/rufnummer|mobilfunknummer|msisdn|telefonnummer/.test(h))pIdx=j;
+          if(pIdx<0&&/rufnummer|ruf-?\s?nr|mobilfunknummer|msisdn|telefonnummer/.test(h))pIdx=j;
         });
       }
       if(kIdx<0)return;
