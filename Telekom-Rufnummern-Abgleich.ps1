@@ -40,6 +40,9 @@ param(
     [switch]$Testlauf,
     [int]$TestAnzahl = 3,
 
+    # Echter Lauf, aber nur die ersten X Filialen (0 = alle)
+    [int]$MaxAnzahl = 0,
+
     # Nur den Seitenaufbau des Portals in eine Datei schreiben
     [switch]$Diagnose,
 
@@ -214,6 +217,21 @@ $JsSuchfeld = $JsGemeinsam + @'
     });
   });
   if(!best)return JSON.stringify({ok:false});
+  // SPERRE: Feld sieht nach Bearbeiten-Formular aus -> nicht anfassen
+  var grund='';
+  if(best.closest('dialog,[role=dialog],[role=alertdialog],[aria-modal=true]'))grund='Feld liegt in einem Dialog/Popup';
+  var form=best.form||best.closest('form');
+  if(!grund&&form){
+    var andere=Array.prototype.filter.call(form.querySelectorAll('input,textarea,select'),function(x){
+      if(x===best||!__vis(x))return false;
+      var tt=(x.type||'').toLowerCase();
+      return ['hidden','submit','button','reset','image'].indexOf(tt)<0;
+    });
+    if(andere.length)grund='Feld liegt in einem Formular mit '+andere.length+' weiteren Eingabefeld(ern)';
+    else if((form.getAttribute('method')||'').toLowerCase()==='post')grund='Formular sendet Daten (POST)';
+  }
+  var info=[best.placeholder,best.getAttribute('aria-label'),best.name,best.id].filter(function(x){return x;}).join(' | ');
+  if(grund)return JSON.stringify({ok:false,gesperrt:true,grund:grund,info:info});
   window.__tkSuchfeld=best;
   best.focus();
   if(best.value){
@@ -222,7 +240,6 @@ $JsSuchfeld = $JsGemeinsam + @'
     best.dispatchEvent(new Event('input',{bubbles:true}));
   }
   if(best.select)best.select();
-  var info=[best.placeholder,best.getAttribute('aria-label'),best.name,best.id].filter(function(x){return x;}).join(' | ');
   return JSON.stringify({ok:best.ownerDocument.activeElement===best,info:info,pfad:location.origin+location.pathname});
 })
 '@
@@ -326,6 +343,7 @@ function ConvertTo-JsText([string]$s) { return ($s | ConvertTo-Json) }
 function Search-Filiale([string]$Kst, [string]$ErlaubterPfad) {
     for ($versuch = 1; $versuch -le 2; $versuch++) {
         $feld = Invoke-Js ($JsSuchfeld + '(' + (ConvertTo-JsText $SuchfeldSelektor) + ')')
+        if ($feld.gesperrt) { throw "SPERRE: $($feld.grund). Zur Sicherheit wird nichts eingegeben." }
         if (-not $feld.ok) { if ($versuch -eq 2) { throw 'Suchfeld nicht mehr gefunden oder nicht fokussierbar.' }; Start-Sleep 2; continue }
         if ($feld.pfad -ne $ErlaubterPfad) { throw "Die Seite hat gewechselt ($($feld.pfad)). Abbruch zur Sicherheit." }
 
@@ -433,6 +451,7 @@ $script:LogDatei = Join-Path $logOrdner "Lauf_$($script:Zeitstempel).txt"
 Write-Host ''
 Write-Host '=== Telekom Rufnummern-Abgleich ===' -ForegroundColor Cyan
 if ($Testlauf) { Write-Host "TESTLAUF: nur $TestAnzahl Filialen, die Excel wird NICHT veraendert." -ForegroundColor Yellow }
+elseif ($MaxAnzahl -gt 0) { Write-Host "NUR $MaxAnzahl Filiale(n) - mit Sicherheitskopie." -ForegroundColor Yellow }
 Write-Host ''
 
 $excel = $null; $mappe = $null
@@ -465,6 +484,9 @@ try {
 
     # --- 2. Suchfeld pruefen ---------------------------------------------------
     $feld = Invoke-Js ($JsSuchfeld + '(' + (ConvertTo-JsText $SuchfeldSelektor) + ')')
+    if ($feld.gesperrt) {
+        throw "SPERRE: Gefundenes Feld '$($feld.info)': $($feld.grund). Es wurde nichts eingegeben. Bitte nur die Uebersicht 'Meine Vertraege' offen haben (kein Bearbeiten-Fenster) oder mit -Diagnose starten."
+    }
     if (-not $feld.ok) {
         throw 'Kein Suchfeld auf der Seite gefunden. Bitte mit -Diagnose starten und die Datei schicken.'
     }
@@ -514,7 +536,8 @@ try {
     Write-Log "Filialen ohne Rufnummer: $($zuSuchen.Count)  |  schon mit Rufnummer (bleiben unberuehrt): $schonVorhanden"
     if ($zuSuchen.Count -eq 0) { Write-Log 'Nichts zu tun.' Green; return }
     if ($Testlauf) { $zuSuchen = @($zuSuchen | Select-Object -First $TestAnzahl) }
-    elseif (-not (Confirm-JaNein "$($zuSuchen.Count) Filialen jetzt suchen und Excel bearbeiten?")) { throw 'Abgebrochen.' }
+    elseif ($MaxAnzahl -gt 0) { $zuSuchen = @($zuSuchen | Select-Object -First $MaxAnzahl) }
+    if (-not $Testlauf -and -not (Confirm-JaNein "$($zuSuchen.Count) Filialen jetzt suchen und Excel bearbeiten?")) { throw 'Abgebrochen.' }
 
     # --- 4. Suchen -------------------------------------------------------------
     $strukturErkannt = $false

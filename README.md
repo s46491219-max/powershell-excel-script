@@ -15,6 +15,8 @@ und trägt die Mobilrufnummer ein.
 - Auf der Website wird **nichts angeklickt**. Das Skript tippt nur die Filialnummer ins Suchfeld und drückt Enter.
   Vor jedem Enter prüft es, dass der Cursor im Suchfeld steht und genau die Filialnummer drinsteht.
 - Wechselt die Seite (z. B. auf eine andere Unterseite), bricht das Skript sofort ab.
+- **Sperre:** Liegt das gefundene Feld in einem Popup/Dialog oder in einem Formular mit weiteren
+  Eingabefeldern (sieht nach „Bearbeiten“ aus), wird nichts eingegeben und das Skript bricht ab.
 - Kein Passwort im Skript, du loggst dich selbst ein.
 - Makros in der Excel werden nicht ausgeführt.
 - Jede Änderung steht im Protokoll (`Protokolle\Lauf_...txt`).
@@ -29,8 +31,13 @@ und trägt die Mobilrufnummer ein.
    Dort einloggen, „Meine Verträge“ öffnen, im PowerShell-Fenster Enter drücken.
 4. Das Skript zeigt das gefundene Suchfeld und fragt nach. Danach sucht es 3 Filialen und zeigt das Ergebnis
    **ohne** die Excel zu ändern.
-5. Stimmt alles: ohne `-Testlauf` starten.
-6. Während des Laufs das Chrome-Fenster nicht benutzen.
+5. Danach **1 echte Filiale** testen (trägt in die Excel ein, mit Sicherheitskopie):
+   ```powershell
+   powershell -ExecutionPolicy Bypass -File .\Test-1-Filiale.ps1
+   ```
+   Excel öffnen und prüfen, ob die Zeile richtig eingetragen und gefärbt ist.
+6. Stimmt alles: ohne `-Testlauf` starten (alle Filialen).
+7. Während des Laufs das Chrome-Fenster nicht benutzen.
 
 ## Wenn etwas nicht erkannt wird
 ```powershell
